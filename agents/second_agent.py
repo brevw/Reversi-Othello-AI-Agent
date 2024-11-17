@@ -34,9 +34,10 @@ class SecondAgent(Agent):
 
     Please check the sample implementation in agents/random_agent.py or agents/human_agent.py for more details.
     """
-    CUT_OFF = sys.maxsize  
+    CUT_OFF = 4
 
     def max_value(chess_board, a, b, depth) -> float:
+      best_move = None
       end_game, player_score, opponent_score = check_endgame(chess_board, 1, 2)
       if depth == CUT_OFF or end_game:
         return self.heuristic(chess_board, 1, player_score, opponent_score)
@@ -48,12 +49,20 @@ class SecondAgent(Agent):
       for move in valid_moves: 
         chess_board_copy = chess_board.copy()
         execute_move(chess_board_copy, move, 1)
-        a = max(a, min_value(chess_board_copy, a, b, depth + 1))
+        min_val = min_value(chess_board_copy, a, b, depth + 1)
+
+        if a < min_val: 
+          a = min_val
+          if depth == 0: 
+            best_move = move
+
         if a >= b: 
           return b
-      return a
+        
+      return best_move if depth == 0 else a
     
     def min_value(chess_board, a, b, depth) -> float: 
+      best_move = None
       end_game, player_score, opponent_score = check_endgame(chess_board, 2, 1)
       if depth == CUT_OFF or end_game:
         return self.heuristic(chess_board, 2, player_score, opponent_score)
@@ -65,42 +74,29 @@ class SecondAgent(Agent):
       for move in valid_moves: 
         chess_board_copy = chess_board.copy()
         execute_move(chess_board_copy, move, 2)
-        b = min(b, max_value(chess_board_copy, a, b, depth + 1))
+        max_val = max_value(chess_board_copy, a, b, depth + 1)
+        if b > max_val: 
+          b = max_val
+          if depth == 0: 
+            best_move = move
+
         if a >= b: 
           return a
-      return b
+        
+      return best_move if depth == 0 else b
     
     # Some simple code to help you with timing. Consider checking 
     # time_taken during your search and breaking with the best answer
     # so far when it nears 2 seconds.
     start_time = time.time()
 
-    a = sys.maxsize
-    b = -a - 1
-    best_move = None
-    valid_moves_1 = get_valid_moves(chess_board, 1)
-    valid_moves_2 = get_valid_moves(chess_board, 2)
-    
-    if (player == 1 and valid_moves_1) or (player == 2 and not valid_moves_2): 
-      for move in valid_moves_1: 
-        chess_board_copy = chess_board.copy()
-        execute_move(chess_board_copy, move, 1)
-        a_ = min_value(chess_board_copy, a, b, 1)
-        if a > a_: 
-          best_move = move
-          a = a_
-    else: 
-      for move in get_valid_moves(chess_board, 2): 
-        chess_board_copy = chess_board.copy()
-        execute_move(chess_board_copy, move, 2)
-        b_ = max_value(chess_board_copy, a, b, 1)
-        if b < b_: 
-          best_move = move
-          b = b_
-
+    b = sys.maxsize
+    a = -b -1
+    best_move = max_value(chess_board, a, b, 0) if player == 1 else min_value(chess_board, a, b, 0)
+  
     time_taken = time.time() - start_time
 
-    #print("My AI's turn took ", time_taken, "seconds.")
+    print("My AI's turn took ", time_taken, "seconds.")
     
     return best_move
   
@@ -129,4 +125,3 @@ class SecondAgent(Agent):
         # Combine scores
         total_score = player_score - opponent_score + corner_score + corner_penalty + mobility_score
         return total_score
-
