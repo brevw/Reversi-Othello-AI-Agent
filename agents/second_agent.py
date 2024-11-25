@@ -7,6 +7,9 @@ from copy import deepcopy
 import time
 from helpers import random_move, count_capture, execute_move, check_endgame, get_valid_moves
 
+class TimeoutException(Exception):
+    pass
+
 @register_agent("second_agent")
 class SecondAgent(Agent):
   """
@@ -17,6 +20,7 @@ class SecondAgent(Agent):
   def __init__(self):
     super(SecondAgent, self).__init__()
     self.name = "StudentAgent"
+    self.time_limit = 1.99 # 2 second at max for the search
 
   def step(self, chess_board, player, opponent):
     """
@@ -34,94 +38,106 @@ class SecondAgent(Agent):
 
     Please check the sample implementation in agents/random_agent.py or agents/human_agent.py for more details.
     """
-    CUT_OFF = 4
 
-    def max_value(chess_board, a, b, depth) -> float:
-      best_move = None
-      end_game, player_score, opponent_score = check_endgame(chess_board, 1, 2)
-      if depth == CUT_OFF or end_game:
-        return self.heuristic(chess_board, 1, player_score, opponent_score)
-      
-      valid_moves = get_valid_moves(chess_board, 1)
-      if not valid_moves: 
-        return min_value(chess_board, a, b, depth)
-      
-      for move in valid_moves: 
-        chess_board_copy = chess_board.copy()
-        execute_move(chess_board_copy, move, 1)
-        min_val = min_value(chess_board_copy, a, b, depth + 1)
-
-        if a < min_val: 
-          a = min_val
-          if depth == 0: 
-            best_move = move
-
-        if a >= b: 
-          return b
-        
-      return best_move if depth == 0 else a
-    
-    def min_value(chess_board, a, b, depth) -> float: 
-      best_move = None
-      end_game, player_score, opponent_score = check_endgame(chess_board, 2, 1)
-      if depth == CUT_OFF or end_game:
-        return self.heuristic(chess_board, 2, player_score, opponent_score)
-      
-      valid_moves = get_valid_moves(chess_board, 2)
-      if not valid_moves:
-        return max_value(chess_board, a, b, depth)
-
-      for move in valid_moves: 
-        chess_board_copy = chess_board.copy()
-        execute_move(chess_board_copy, move, 2)
-        max_val = max_value(chess_board_copy, a, b, depth + 1)
-        if b > max_val: 
-          b = max_val
-          if depth == 0: 
-            best_move = move
-
-        if a >= b: 
-          return a
-        
-      return best_move if depth == 0 else b
-    
-    # Some simple code to help you with timing. Consider checking 
-    # time_taken during your search and breaking with the best answer
-    # so far when it nears 2 seconds.
     start_time = time.time()
+    root = Node(chess_board, player, opponent)
 
-    b = sys.maxsize
-    a = -b -1
-    best_move = max_value(chess_board, a, b, 0) if player == 1 else min_value(chess_board, a, b, 0)
-  
-    time_taken = time.time() - start_time
+    while time.time() - start_time < self.time_limit:
+      leaf_node = root.expand()
 
-    print("My AI's turn took ", time_taken, "seconds.")
+      if not check_endgame(leaf_node.chess_board, leaf_node.player, leaf_node.opponent)[0]: ## if not at end game 
+        leaf_node.create_children()
+
+      if leaf_node.children: 
+        node_to_simulate = np.random.choice(leaf_node.children)
+      else: 
+        node_to_simulate = leaf_node
+
+      result = node_to_simulate.simulate()
+
+      node_to_simulate.backpropagate(result)
     
-    return best_move
+    best_child = max(root.children, key=lambda child: child.wins/child.n_visits)
+
+    time_taken = time.time() - start_time
+    print("My AI's turn took ", time_taken, "seconds.")
+    return best_child.move
+
+class Node: 
   
-  def heuristic(self, board, color, player_score, opponent_score):
-        """
-        Evaluate the board state based on multiple factors.
+  def __init__(self, chess_board, player, opponent, parent=None, move=None):
+    self.chess_board = chess_board
+    self.player = player
+    self.opponent = opponent
+    self.parent = parent
+    self.move = move
+    self.children = []
+    self.n_visits = 0 
+    self.wins = 0
 
-        Parameters:
-        - board: 2D numpy array representing the game board.
-        - color: Integer representing the agent's color (1 for Player 1/Blue, 2 for Player 2/Brown).
-        - player_score: Score of the current player.
-        - opponent_score: Score of the opponent.
+  def is_leaf(self): 
+    return not self.children 
+  
+  def uct_score(self, exploration_weight=1.4):
+    if self.n_visits == 0: 
+      return float('inf')
+    parent = self
+    if self.parent: 
+      parent = self.parent
+    return (self.wins / self.n_visits) + (exploration_weight * np.sqrt(np.log(parent.n_visits) / self.n_visits))
+  
+  def create_children(self):     
+    for move in get_valid_moves(self.chess_board, self.player):
+      new_board = self.chess_board.copy()
+      execute_move(new_board, move, self.player)
+      # Create a new child node for this move
+      child_node = Node(new_board, self.opponent, self.player, parent=self, move=move)
+      self.children.append(child_node)
 
-        Returns:
-        - int: The evaluated score of the board.
-        """
-        # Corner positions are highly valuable
-        corners = [(0, 0), (0, board.shape[1] - 1), (board.shape[0] - 1, 0), (board.shape[0] - 1, board.shape[1] - 1)]
-        corner_score = sum(1 for corner in corners if board[corner] == color) * 10
-        corner_penalty = sum(1 for corner in corners if board[corner] == 3 - color) * -10
+  def select_child(self): 
+    valid_moves = get_valid_moves(self.chess_board, self.player)
+    if not valid_moves: 
+      return None
 
-        # Mobility: the number of moves the opponent can make
-        opponent_moves = len(get_valid_moves(board, 3 - color))
-        mobility_score = -opponent_moves
+    if not self.children: 
+      self.create_children()
+      return np.random.choice(self.children) 
+    
+    node_to_explore = None
+    best_score = float('-inf')
+    for child in self.children: 
+      score = child.uct_score()
+      if score > best_score: 
+          best_score = score
+          node_to_explore = child
+    return node_to_explore
+  
+  def expand(self): 
+    current_node = self
+    while not current_node.is_leaf():
+      current_node = current_node.select_child()
+    return current_node
+  
+  def simulate(self): 
+    current_board = self.chess_board.copy()
+    current_player = self.player
+    current_opponent = self.opponent
 
-        # Combine scores
-        total_score = player_score - opponent_score + corner_score + corner_penalty + mobility_score
-        return total_score
+    while not check_endgame(current_board, current_player, current_opponent)[0]:
+      valid_moves = get_valid_moves(current_board, current_player)
+      if valid_moves:
+          move = random_move(current_board, current_player)
+          execute_move(current_board, move, current_player)
+        
+      current_player, current_opponent = current_opponent, current_player
+    
+    player_score = np.sum(current_board == self.player)
+    opponent_score = np.sum(current_board == self.opponent)
+
+    return 1 if player_score > opponent_score else 0 if player_score < opponent_score else 0.5
+
+  def backpropagate(self, score): 
+    self.n_visits += 1
+    self.wins += score
+    if self.parent: 
+      self.parent.backpropagate(1 - score) ## opponent gets opposite score
