@@ -45,7 +45,8 @@ class StudentAgent(Agent):
     # so far when it nears 2 seconds.
     start_time = time.time()
 
-    i = 100
+    STEP_SIZE = 10
+    i = 200
     best_move = 1
     temp = 1
     while temp:
@@ -54,10 +55,10 @@ class StudentAgent(Agent):
         best_move = temp
       else:
         break
-      i += 1
+      i += STEP_SIZE
     time_taken = time.time() - start_time
 
-    print("My AI's turn took ", time_taken, "seconds.")
+    print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
     return best_move
 
   def evaluate(self, chess_board, player, opponent) -> float:
@@ -91,25 +92,29 @@ class StudentAgent(Agent):
 
     player_pieces = np.sum(chess_board == player)
     opponent_pieces = np.sum(chess_board == opponent)
-    piece_advantage = player_pieces - opponent_pieces
+    piece_advantage = (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
     
     player_mobility = len(get_valid_moves(chess_board, player))
     opponent_mobility = len(get_valid_moves(chess_board, opponent))
-    mobility_advantage = player_mobility - opponent_mobility
+    mobility_advantage = 0 if player_mobility + opponent_mobility == 0 else (player_mobility - opponent_mobility) / (player_mobility + opponent_mobility)
 
     player_stablility = count_stable_discs(chess_board, player)
     opponent_stability = count_stable_discs(chess_board, opponent)
-    stability_advantage = player_stablility - opponent_stability
+    stability_advantage = 0 if player_stablility + opponent_stability == 0 else (player_stablility - opponent_stability) / (player_stablility + opponent_stability)
 
-    player_edge_occupancy = edge_occupancy(chess_board, player)
-    opponent_edge_occupancy = edge_occupancy(chess_board, opponent)
-    edge_occupancy_advantage = player_edge_occupancy - opponent_edge_occupancy
+    # player_edge_occupancy = edge_occupancy(chess_board, player)
+    # opponent_edge_occupancy = edge_occupancy(chess_board, opponent)
+    # edge_occupancy_advantage = player_edge_occupancy - opponent_edge_occupancy
 
+    player_corner_occupancy = np.sum(chess_board[[(0,0), (0, -1), (-1, 0), (-1, -1)]] == player)
+    opponent_corner_occupancy = np.sum(chess_board[[(0,0), (0, -1), (-1, 0), (-1, -1)]] == opponent)
+    corner_occupancy_advantage = 0 if player_corner_occupancy + opponent_corner_occupancy == 0 else (player_corner_occupancy - opponent_corner_occupancy) / (player_corner_occupancy + opponent_corner_occupancy)
 
-    eval =  piece_advantage * 1.0           + \
-            mobility_advantage * 1.0        + \
-            stability_advantage * 3.0       + \
-            edge_occupancy_advantage * 4.0
+    eval =  piece_advantage * 100.0           + \
+            mobility_advantage * 100.0        + \
+            stability_advantage * 100.0       + \
+            corner_occupancy_advantage * 100.0
+            # edge_occupancy_advantage * 100.0
     return eval
 
 
