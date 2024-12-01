@@ -54,6 +54,7 @@ _12_BY_12_POSITIONAL_WEIGHTS = np.array([
     [  5,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,   5],
     [ 10,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,  10],
     [-10, -20,  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5, -20, -10],
+    [100, -10,  10,   5,   5,   5,   5,   5,   5,  10, -10, 100],
     [100, -10,  10,   5,   5,   5,   5,   5,   5,  10, -10, 100]
 ])
 
@@ -62,6 +63,14 @@ static_weights = {
   8  : _8_BY_8_POSITIONAL_WEIGHTS,
   10 : _10_BY_10_POSITIONAL_WEIGHTS,
   12 : _12_BY_12_POSITIONAL_WEIGHTS
+}
+
+
+eval_weights = {
+  6: np.array([1, 1.5, 0.8, 2, 1.2]),
+  8: np.array([1, 1, 1, 1.5, 1.5]),
+  10: np.array([0.8, 1.5, 1.2, 2, 2]),
+  12: np.array([0.5, 2, 1.5, 2.5, 2.5])
 }
 
 @register_agent("student_agent")
@@ -111,11 +120,33 @@ class StudentAgent(Agent):
       i += STEP_SIZE
     time_taken = time.time() - start_time
 
-    print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
+    #print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
     return best_move
 
-  def evaluate(self, chess_board, player, opponent) -> float:
+  # evaluation metrics
+  def pieces_difference(self, chess_board, player, opponent) -> float:
+    player_pieces = np.sum(chess_board == player)
+    opponent_pieces = np.sum(chess_board == opponent)
+    return (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
+  
+  def potential_mobility(self, chess_board, player, opponent) -> float:
+    player_mobility = len(get_valid_moves(chess_board, player))
+    opponent_mobility = len(get_valid_moves(chess_board, opponent))
+    return 0 if player_mobility + opponent_mobility == 0 else (player_mobility - opponent_mobility) / (player_mobility + opponent_mobility)
+  
+  def positional_advantage(self, chess_board, player, opponent) -> float:
+    weights = static_weights[chess_board.shape[0]]
+    player_poisitional = np.sum((chess_board == player) * weights)
+    opponent_poisitional = np.sum((chess_board == opponent) * weights)
+    return 0 if player_poisitional + opponent_poisitional == 0 else (player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional) / 100.0
 
+  def corner_occupancy(self, chess_board, player, opponent):
+    rows, cols = [0, 0, -1, -1], [0, -1, 0, -1]
+    player_corner_occupancy = np.sum(chess_board[rows, cols] == player)
+    opponent_corner_occupancy = np.sum(chess_board[rows, cols] == opponent)
+    return 0 if player_corner_occupancy + opponent_corner_occupancy == 0 else (player_corner_occupancy - opponent_corner_occupancy) / (player_corner_occupancy + opponent_corner_occupancy)
+  
+  def stability(self, chess_board, player, opponent) -> float:
     def count_stable_discs(chess_board, player):
       stable_discs = 0
       directions = get_directions()
@@ -138,35 +169,20 @@ class StudentAgent(Agent):
                   if stable:
                       stable_discs += 1
       return stable_discs
-
-    # pieces count advantage
-    player_pieces = np.sum(chess_board == player)
-    opponent_pieces = np.sum(chess_board == opponent)
-    piece_advantage = (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
-    
-    # positional advantage
-    weights = static_weights[chess_board.shape[0]]
-    player_poisitional = np.sum((chess_board == player) * weights)
-    opponent_poisitional = np.sum((chess_board == opponent) * weights)
-    positional_advantage = 0 if player_poisitional + opponent_poisitional == 0 else (player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional)
-    
-    player_mobility = len(get_valid_moves(chess_board, player))
-    opponent_mobility = len(get_valid_moves(chess_board, opponent))
-    mobility_advantage = 0 if player_mobility + opponent_mobility == 0 else (player_mobility - opponent_mobility) / (player_mobility + opponent_mobility)
-
-    player_stablility = count_stable_discs(chess_board, player)
+    player_stability = count_stable_discs(chess_board, player)
     opponent_stability = count_stable_discs(chess_board, opponent)
-    stability_advantage = 0 if player_stablility + opponent_stability == 0 else (player_stablility - opponent_stability) / (player_stablility + opponent_stability)
+    return 0 if player_stability + opponent_stability == 0 else (player_stability - opponent_stability) / (player_stability + opponent_stability)
 
-    player_corner_occupancy = np.sum(chess_board[[(0,0), (0, -1), (-1, 0), (-1, -1)]] == player)
-    opponent_corner_occupancy = np.sum(chess_board[[(0,0), (0, -1), (-1, 0), (-1, -1)]] == opponent)
-    corner_occupancy_advantage = 0 if player_corner_occupancy + opponent_corner_occupancy == 0 else (player_corner_occupancy - opponent_corner_occupancy) / (player_corner_occupancy + opponent_corner_occupancy)
 
-    eval =  piece_advantage * 100.0           + \
-            mobility_advantage * 100.0        + \
-            stability_advantage * 100.0       + \
-            corner_occupancy_advantage * 100.0
-    return eval
+  def evaluate(self, chess_board, player, opponent) -> float:
+    eval = [
+            self.pieces_difference(chess_board, player, opponent),
+            self.potential_mobility(chess_board, player, opponent),
+            self.positional_advantage(chess_board, player, opponent),
+            self.corner_occupancy(chess_board, player, opponent),
+            self.stability(chess_board, player, opponent)
+          ]
+    return np.sum(eval * eval_weights[chess_board.shape[0]])
 
 
   def alpha_beta_pruning_depth_limited(self, chess_board: np.array, player, opponent, start_time: float, depth_limit: int):
