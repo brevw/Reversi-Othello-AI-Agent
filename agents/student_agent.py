@@ -10,6 +10,59 @@ from helpers import random_move, count_capture, execute_move, check_endgame, get
 class TimeoutException(Exception):
     pass
 
+_6_BY_6_POSITIONAL_WEIGHTS = np.array([
+    [100, -10,  10,  10, -10, 100],
+    [-10, -20,  -5,  -5, -20, -10],
+    [ 10,  -5,   0,   0,  -5,  10],
+    [ 10,  -5,   0,   0,  -5,  10],
+    [-10, -20,  -5,  -5, -20, -10],
+    [100, -10,  10,  10, -10, 100]
+], dtype=int)
+
+_8_BY_8_POSITIONAL_WEIGHTS = np.array([
+    [100, -10,  10,   5,   5,  10, -10, 100],
+    [-10, -20,  -5,  -5,  -5,  -5, -20, -10],
+    [ 10,  -5,   0,   0,   0,   0,  -5,  10],
+    [  5,  -5,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,  -5,   5],
+    [ 10,  -5,   0,   0,   0,   0,  -5,  10],
+    [-10, -20,  -5,  -5,  -5,  -5, -20, -10],
+    [100, -10,  10,   5,   5,  10, -10, 100]
+], dtype=int)
+
+_10_BY_10_POSITIONAL_WEIGHTS = np.array([
+    [100, -10,  10,   5,   5,   5,   5,  10, -10, 100],
+    [-10, -20,  -5,  -5,  -5,  -5,  -5,  -5, -20, -10],
+    [ 10,  -5,   0,   0,   0,   0,   0,   0,  -5,  10],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [ 10,  -5,   0,   0,   0,   0,   0,   0,  -5,  10],
+    [-10, -20,  -5,  -5,  -5,  -5,  -5,  -5, -20, -10],
+    [100, -10,  10,   5,   5,   5,   5,  10, -10, 100]
+])
+
+_12_BY_12_POSITIONAL_WEIGHTS = np.array([
+    [100, -10,  10,   5,   5,   5,   5,   5,   5,  10, -10, 100],
+    [-10, -20,  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5, -20, -10],
+    [ 10,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,  10],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [  5,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,   5],
+    [ 10,  -5,   0,   0,   0,   0,   0,   0,   0,   0,  -5,  10],
+    [-10, -20,  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5, -20, -10],
+    [100, -10,  10,   5,   5,   5,   5,   5,   5,  10, -10, 100]
+])
+
+static_weights = {
+  6  : _6_BY_6_POSITIONAL_WEIGHTS,
+  8  : _8_BY_8_POSITIONAL_WEIGHTS,
+  10 : _10_BY_10_POSITIONAL_WEIGHTS,
+  12 : _12_BY_12_POSITIONAL_WEIGHTS
+}
 
 @register_agent("student_agent")
 class StudentAgent(Agent):
@@ -86,13 +139,16 @@ class StudentAgent(Agent):
                       stable_discs += 1
       return stable_discs
 
-    def edge_occupancy(chess_board, player):
-       rows, cols = chess_board.shape 
-       return np.sum(chess_board[0] == player) + np.sum(chess_board[rows - 1] == player) + np.sum(chess_board[:, 0] == player)+ np.sum(chess_board[:, cols - 1] == player)
-
+    # pieces count advantage
     player_pieces = np.sum(chess_board == player)
     opponent_pieces = np.sum(chess_board == opponent)
     piece_advantage = (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
+    
+    # positional advantage
+    weights = static_weights[chess_board.shape[0]]
+    player_poisitional = np.sum((chess_board == player) * weights)
+    opponent_poisitional = np.sum((chess_board == opponent) * weights)
+    positional_advantage = 0 if player_poisitional + opponent_poisitional == 0 else (player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional)
     
     player_mobility = len(get_valid_moves(chess_board, player))
     opponent_mobility = len(get_valid_moves(chess_board, opponent))
@@ -102,10 +158,6 @@ class StudentAgent(Agent):
     opponent_stability = count_stable_discs(chess_board, opponent)
     stability_advantage = 0 if player_stablility + opponent_stability == 0 else (player_stablility - opponent_stability) / (player_stablility + opponent_stability)
 
-    # player_edge_occupancy = edge_occupancy(chess_board, player)
-    # opponent_edge_occupancy = edge_occupancy(chess_board, opponent)
-    # edge_occupancy_advantage = player_edge_occupancy - opponent_edge_occupancy
-
     player_corner_occupancy = np.sum(chess_board[[(0,0), (0, -1), (-1, 0), (-1, -1)]] == player)
     opponent_corner_occupancy = np.sum(chess_board[[(0,0), (0, -1), (-1, 0), (-1, -1)]] == opponent)
     corner_occupancy_advantage = 0 if player_corner_occupancy + opponent_corner_occupancy == 0 else (player_corner_occupancy - opponent_corner_occupancy) / (player_corner_occupancy + opponent_corner_occupancy)
@@ -114,7 +166,6 @@ class StudentAgent(Agent):
             mobility_advantage * 100.0        + \
             stability_advantage * 100.0       + \
             corner_occupancy_advantage * 100.0
-            # edge_occupancy_advantage * 100.0
     return eval
 
 
