@@ -58,15 +58,14 @@ _12_BY_12_POSITIONAL_WEIGHTS = np.array([
     [100, -10,  10,   5,   5,   5,   5,   5,   5,  10, -10, 100]
 ])
 
-static_weights = {
+STATIC_WEIGHTS = {
   6  : _6_BY_6_POSITIONAL_WEIGHTS,
   8  : _8_BY_8_POSITIONAL_WEIGHTS,
   10 : _10_BY_10_POSITIONAL_WEIGHTS,
   12 : _12_BY_12_POSITIONAL_WEIGHTS
 }
 
-
-eval_weights = {
+EVAL_WEIGHTS = {
   6: np.array([1, 1.5, 0.8, 2, 1.2]),
   8: np.array([1, 1, 1, 1.5, 1.5]),
   10: np.array([0.8, 1.5, 1.2, 2, 2]),
@@ -87,24 +86,9 @@ class StudentAgent(Agent):
 
   def step(self, chess_board, player, opponent):
     """
-    Implement the step function of your agent here.
-    You can use the following variables to access the chess board:
-    - chess_board: a numpy array of shape (board_size, board_size)
-      where 0 represents an empty spot, 1 represents Player 1's discs (Blue),
-      and 2 represents Player 2's discs (Brown).
-    - player: 1 if this agent is playing as Player 1 (Blue), or 2 if playing as Player 2 (Brown).
-    - opponent: 1 if the opponent is Player 1 (Blue), or 2 if the opponent is Player 2 (Brown).
-
-    You should return a tuple (r,c), where (r,c) is the position where your agent
-    wants to place the next disc. Use functions in helpers to determine valid moves
-    and more helpful tools.
-
-    Please check the sample implementation in agents/random_agent.py or agents/human_agent.py for more details.
+    Finds the next best move for the player
     """
 
-    # Some simple code to help you with timing. Consider checking 
-    # time_taken during your search and breaking with the best answer
-    # so far when it nears 2 seconds.
     start_time = time.time()
 
     STEP_SIZE = 10
@@ -124,42 +108,72 @@ class StudentAgent(Agent):
     return best_move
 
   # evaluation metrics
-  def pieces_difference(self, chess_board, player, opponent) -> float:
-    player_pieces = np.sum(chess_board == player)
-    opponent_pieces = np.sum(chess_board == opponent)
-    return (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
+  def piece_advantage(self, board: np.array, player, opponent) -> float: 
+      """
+      Heuristic based on the number of captured pieces of the player compared to the opponent
+      """
+      player_pieces, opponent_pieces = np.sum(board == player), np.sum(board == opponent)
+      return 100 * (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
   
-  def potential_mobility(self, chess_board, player, opponent) -> float:
-    player_mobility = len(get_valid_moves(chess_board, player))
-    opponent_mobility = len(get_valid_moves(chess_board, opponent))
-    return 0 if player_mobility + opponent_mobility == 0 else (player_mobility - opponent_mobility) / (player_mobility + opponent_mobility)
+  def actual_mobility_advantage(self, board: np.array, player, opponent) -> float:
+      """
+      Heuristic based on the number of moves the player can make compared to the opponent
+      """
+      player_actual_mobility, opponent_actual_mobility = len(get_valid_moves(board, player)), len(get_valid_moves(board, opponent))
+      return 0 if player_actual_mobility + opponent_actual_mobility == 0 else 100 * (player_actual_mobility - opponent_actual_mobility) / (player_actual_mobility + opponent_actual_mobility)
+
+  def potential_mobility_advantage(self, board: np.array, player, opponent) -> float: 
+    """
+    Heuristic based on long term mobility. It looks at the number of empty cells around each player or opponent piece
+    """
+    player_potential_mobility, opponent_potential_mobility = 0, 0 
+    directions = get_directions()
+    rows, cols = board.shape
+    for r in rows: 
+      for c in cols:
+        if board[r, c] == player:
+          for dr, dc in directions: 
+            nr, nc = r + dr, c + dc 
+            if 0 <= nr < board.shape[0] and 0 <= nc < board.shape[1] and board[nr, nc] == 0: 
+              opponent_potential_mobility += 1
+        elif board[r, c] == opponent: 
+          for dr, dc in directions: 
+            nr, nc = r + dr, c + dc 
+            if 0 <= nr < board.shape[0] and 0 <= nc < board.shape[1] and board[nr, nc] == 0:
+              player_potential_mobility += 1
+    
+    return 0 if player_potential_mobility + opponent_potential_mobility == 0 else 100 * (player_potential_mobility - opponent_potential_mobility) / (player_potential_mobility + opponent_potential_mobility)
   
   def positional_advantage(self, chess_board, player, opponent) -> float:
-    weights = static_weights[chess_board.shape[0]]
-    player_poisitional = np.sum((chess_board == player) * weights)
-    opponent_poisitional = np.sum((chess_board == opponent) * weights)
+    weights = STATIC_WEIGHTS[chess_board.shape[0]]
+    player_poisitional, opponent_poisitional = np.sum((chess_board == player) * weights), np.sum((chess_board == opponent) * weights)
     return 0 if player_poisitional + opponent_poisitional == 0 else (player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional) / 100.0
 
-  def corner_occupancy(self, chess_board, player, opponent):
-    rows, cols = [0, 0, -1, -1], [0, -1, 0, -1]
-    player_corner_occupancy = np.sum(chess_board[rows, cols] == player)
-    opponent_corner_occupancy = np.sum(chess_board[rows, cols] == opponent)
-    return 0 if player_corner_occupancy + opponent_corner_occupancy == 0 else (player_corner_occupancy - opponent_corner_occupancy) / (player_corner_occupancy + opponent_corner_occupancy)
+  def corner_occupancy(self, board: np.array, player, opponent) -> float:
+      """
+      Heuristic based on the number of corners occupied by the player compared to the opponent
+      """
+      rows, cols = [0, 0, -1, -1], [0, -1, 0, -1]
+      player_corners, opponent_corners = np.sum(board[rows, cols] == player), np.sum(board[rows, cols] == opponent)
+      return 0 if player_corners + opponent_corners == 0 else 100 * (player_corners - opponent_corners) / (player_corners + opponent_corners)
   
-  def stability(self, chess_board, player, opponent) -> float:
-    def count_stable_discs(chess_board, player):
+  def stability(self, board: np.array, player, opponent) -> float:
+    """
+    Heuristic based on the number of corners occupied by the player compared to the opponent
+    """
+    def count_stable_discs(board: np.array, player):
       stable_discs = 0
       directions = get_directions()
-      rows, cols = chess_board.shape
+      rows, cols = board.shape
       for r in range(rows):
           for c in range(cols):
-              if chess_board[r, c] == player:
+              if board[r, c] == player:
                   stable = True
                   # to be stable has to stable over all directions
                   for dr, dc in directions:
                       rr, cc = r, c
                       while 0 <= rr < rows and 0 <= cc < cols:
-                          if chess_board[rr, cc] == 0:
+                          if board[rr, cc] == 0:
                               stable = False
                               break
                           rr += dr
@@ -169,31 +183,35 @@ class StudentAgent(Agent):
                   if stable:
                       stable_discs += 1
       return stable_discs
-    player_stability = count_stable_discs(chess_board, player)
-    opponent_stability = count_stable_discs(chess_board, opponent)
+    
+    player_stability = count_stable_discs(board, player)
+    opponent_stability = count_stable_discs(board, opponent)
     return 0 if player_stability + opponent_stability == 0 else (player_stability - opponent_stability) / (player_stability + opponent_stability)
 
-
-  def evaluate(self, chess_board, player, opponent) -> float:
+  def evaluate_board(self, board: np.array, player, opponent) -> float:
+    """
+    Evaluates the board based on a weighted sum of heuristics
+    """
     eval = [
-            self.pieces_difference(chess_board, player, opponent),
-            self.potential_mobility(chess_board, player, opponent),
-            self.positional_advantage(chess_board, player, opponent),
-            self.corner_occupancy(chess_board, player, opponent),
-            self.stability(chess_board, player, opponent)
+            self.piece_advantage(board, player, opponent),
+            self.actual_mobility_advantage(board, player, opponent),
+            self.positional_advantage(board, player, opponent),
+            self.corner_occupancy(board, player, opponent),
+            self.stability(board, player, opponent)
           ]
-    return np.sum(eval * eval_weights[chess_board.shape[0]])
-
+    return np.sum(eval * EVAL_WEIGHTS[board.shape[0]])
 
   def alpha_beta_pruning_depth_limited(self, chess_board: np.array, player, opponent, start_time: float, depth_limit: int):
-
+    """
+    Depth limited tree search via alpha beta pruning 
+    """
     def max_value(board, alpha, beta, depth) -> float:
       if time.time() - start_time > self.time_limit:
         raise TimeoutException()
       # do not exceed max depth
       best_move = None
       if depth == depth_limit or check_endgame(board, player, opponent)[0]:
-        return self.evaluate(board, player, opponent)
+        return self.evaluate_board(board, player, opponent)
       
       valid_moves = get_valid_moves(chess_board, player)
       if not valid_moves:
@@ -220,7 +238,7 @@ class StudentAgent(Agent):
         raise TimeoutException()
       # do not exceed max depth
       if depth == depth_limit or check_endgame(board, opponent, player):
-        return self.evaluate(board, player, opponent)
+        return self.evaluate_board(board, player, opponent)
       
       valid_moves = get_valid_moves(chess_board, opponent)
       if not valid_moves:
@@ -242,5 +260,3 @@ class StudentAgent(Agent):
       return max_value(chess_board, -INF, +INF, 0)
     except TimeoutException:
       return None 
-  
-
