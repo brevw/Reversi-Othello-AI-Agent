@@ -66,7 +66,7 @@ STATIC_WEIGHTS = {
 }
 
 EVAL_WEIGHTS = {
-  6: np.array([1, 1.5, 0.8, 2, 1.2]),
+  6: np.array([1, 1, 1, 2, 1]),
   8: np.array([1, 1, 1, 1.5, 1.5]),
   10: np.array([0.8, 1.5, 1.2, 2, 2]),
   12: np.array([0.5, 2, 1.5, 2.5, 2.5])
@@ -145,6 +145,9 @@ class StudentAgent(Agent):
     return 0 if player_potential_mobility + opponent_potential_mobility == 0 else 100 * (player_potential_mobility - opponent_potential_mobility) / (player_potential_mobility + opponent_potential_mobility)
   
   def positional_advantage(self, chess_board, player, opponent) -> float:
+    """
+      Heuristic based on the static weight matrices
+    """
     weights = STATIC_WEIGHTS[chess_board.shape[0]]
     player_poisitional, opponent_poisitional = np.sum((chess_board == player) * weights), np.sum((chess_board == opponent) * weights)
     return 0 if player_poisitional + opponent_poisitional == 0 else (player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional) / 100.0
@@ -161,31 +164,69 @@ class StudentAgent(Agent):
     """
     Heuristic based on the number of corners occupied by the player compared to the opponent
     """
-    def count_stable_discs(board: np.array, player):
-      stable_discs = 0
-      directions = get_directions()
-      rows, cols = board.shape
-      for r in range(rows):
-          for c in range(cols):
-              if board[r, c] == player:
-                  stable = True
-                  # to be stable has to stable over all directions
-                  for dr, dc in directions:
-                      rr, cc = r, c
-                      while 0 <= rr < rows and 0 <= cc < cols:
-                          if board[rr, cc] == 0:
-                              stable = False
-                              break
-                          rr += dr
-                          cc += dc
-                      if not stable:
+    player_stability = 0
+    opponent_stability = 0
+    rows, cols = board.shape
+    for r in range(rows):
+        for c in range(cols):
+            current = board[r, c]
+            if current != '0':
+                stable = True
+                # horizontal
+                for i in [1, -1]:
+                  rr, cc = r, c
+                  while 0 <= rr < rows:
+                      if board[rr, cc] != current:
+                          stable = False
                           break
-                  if stable:
-                      stable_discs += 1
-      return stable_discs
-    
-    player_stability = count_stable_discs(board, player)
-    opponent_stability = count_stable_discs(board, opponent)
+                      rr += i
+                  if not stable:
+                      break
+                if not stable:
+                    continue
+                # vertical
+                for i in [1, -1]:
+                  rr, cc = r, c
+                  while 0 <= cc < cols:
+                      if board[rr, cc] != current:
+                          stable = False
+                          break
+                      cc += i
+                  if not stable:
+                      break
+                if not stable:
+                    continue
+                # positive diagonal
+                for i in [1, -1]:
+                  rr, cc = r, c
+                  while 0 <= rr < rows and 0 <= cc < cols:
+                      if board[rr, cc] != current:
+                          stable = False
+                          break
+                      rr += i
+                      cc += i
+                  if not stable:
+                      break
+                if not stable:
+                    continue
+                # negative diagonal
+                for i in [1, -1]:
+                  rr, cc = r, c
+                  while 0 <= rr < rows and 0 <= cc < cols:
+                      if board[rr, cc] != current:
+                          stable = False
+                          break
+                      rr += i
+                      cc -= i
+                  if not stable:
+                      break
+                if not stable:
+                    continue
+                # case where we found a stable disc inside the matrix
+                if current == player:
+                    player_stability += 1
+                else: 
+                    opponent_stability += 1
     return 0 if player_stability + opponent_stability == 0 else (player_stability - opponent_stability) / (player_stability + opponent_stability)
 
   def evaluate_board(self, board: np.array, player, opponent) -> float:
