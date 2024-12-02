@@ -65,12 +65,18 @@ STATIC_WEIGHTS = {
   12 : _12_BY_12_POSITIONAL_WEIGHTS
 }
 
+# self.piece_advantage(board, player, opponent),
+# self.actual_mobility_advantage(board, player, opponent),
+# self.positional_advantage(board, player, opponent),
+# self.corner_occupancy(board, player, opponent),
+# self.stability(board, player, opponent)
+
 EVAL_WEIGHTS = {
-  6: np.array([1, 1, 1, 2, 1]),
-  8: np.array([1, 1, 1, 1.5, 1.5]),
-  10: np.array([0.8, 1.5, 1.2, 2, 2]),
-  12: np.array([0.5, 2, 1.5, 2.5, 2.5])
-}
+    6: np.array([1, 1, 1, 100, 2]),
+    8: np.array([1, 1, 1, 1.5, 1.5]),
+    10: np.array([0.8, 1.5, 1.2, 2, 2]),
+    12: np.array([0.5, 2, 1.5, 2.5, 2.5])
+  }
 
 @register_agent("student_agent")
 class StudentAgent(Agent):
@@ -103,8 +109,10 @@ class StudentAgent(Agent):
         break
       i += STEP_SIZE
     time_taken = time.time() - start_time
-
     #print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
+    chess_board_copy = chess_board.copy()
+    execute_move(chess_board_copy, best_move, player)
+    print(self.evaluate_board(chess_board_copy, player, opponent, fuck=True))
     return best_move
 
   # evaluation metrics
@@ -113,14 +121,14 @@ class StudentAgent(Agent):
       Heuristic based on the number of captured pieces of the player compared to the opponent
       """
       player_pieces, opponent_pieces = np.sum(board == player), np.sum(board == opponent)
-      return 100 * (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
+      return (player_pieces - opponent_pieces) / (player_pieces + opponent_pieces)
   
   def actual_mobility_advantage(self, board: np.array, player, opponent) -> float:
       """
       Heuristic based on the number of moves the player can make compared to the opponent
       """
       player_actual_mobility, opponent_actual_mobility = len(get_valid_moves(board, player)), len(get_valid_moves(board, opponent))
-      return 0 if player_actual_mobility + opponent_actual_mobility == 0 else 100 * (player_actual_mobility - opponent_actual_mobility) / (player_actual_mobility + opponent_actual_mobility)
+      return 0 if player_actual_mobility + opponent_actual_mobility == 0 else (player_actual_mobility - opponent_actual_mobility) / (player_actual_mobility + opponent_actual_mobility)
 
   def potential_mobility_advantage(self, board: np.array, player, opponent) -> float: 
     """
@@ -142,7 +150,7 @@ class StudentAgent(Agent):
             if 0 <= nr < board.shape[0] and 0 <= nc < board.shape[1] and board[nr, nc] == 0:
               player_potential_mobility += 1
     
-    return 0 if player_potential_mobility + opponent_potential_mobility == 0 else 100 * (player_potential_mobility - opponent_potential_mobility) / (player_potential_mobility + opponent_potential_mobility)
+    return 0 if player_potential_mobility + opponent_potential_mobility == 0 else (player_potential_mobility - opponent_potential_mobility) / (player_potential_mobility + opponent_potential_mobility)
   
   def positional_advantage(self, chess_board, player, opponent) -> float:
     """
@@ -150,7 +158,7 @@ class StudentAgent(Agent):
     """
     weights = STATIC_WEIGHTS[chess_board.shape[0]]
     player_poisitional, opponent_poisitional = np.sum((chess_board == player) * weights), np.sum((chess_board == opponent) * weights)
-    return 0 if player_poisitional + opponent_poisitional == 0 else (player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional) / 100.0
+    return 0 if player_poisitional + opponent_poisitional == 0 else ((player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional)) / 100.0
 
   def corner_occupancy(self, board: np.array, player, opponent) -> float:
       """
@@ -158,78 +166,54 @@ class StudentAgent(Agent):
       """
       rows, cols = [0, 0, -1, -1], [0, -1, 0, -1]
       player_corners, opponent_corners = np.sum(board[rows, cols] == player), np.sum(board[rows, cols] == opponent)
-      return 0 if player_corners + opponent_corners == 0 else 100 * (player_corners - opponent_corners) / (player_corners + opponent_corners)
+      return 0 if player_corners + opponent_corners == 0 else (player_corners - opponent_corners) / (player_corners + opponent_corners)
   
   def stability(self, board: np.array, player, opponent) -> float:
     """
     Heuristic based on the number of corners occupied by the player compared to the opponent
     """
-    player_stability = 0
-    opponent_stability = 0
+    
+    player_stability, opponent_stability = 0, 0
+    directions = [
+        (0, 1),  
+        (1, 0),  
+        (1, 1),  
+        (1, -1), 
+    ]
     rows, cols = board.shape
+    count = 0
     for r in range(rows):
-        for c in range(cols):
-            current = board[r, c]
-            if current != '0':
-                stable = True
-                # horizontal
-                for i in [1, -1]:
-                  rr, cc = r, c
-                  while 0 <= rr < rows:
-                      if board[rr, cc] != current:
-                          stable = False
-                          break
-                      rr += i
-                  if not stable:
-                      break
-                if not stable:
-                    continue
-                # vertical
-                for i in [1, -1]:
-                  rr, cc = r, c
-                  while 0 <= cc < cols:
-                      if board[rr, cc] != current:
-                          stable = False
-                          break
-                      cc += i
-                  if not stable:
-                      break
-                if not stable:
-                    continue
-                # positive diagonal
-                for i in [1, -1]:
-                  rr, cc = r, c
-                  while 0 <= rr < rows and 0 <= cc < cols:
-                      if board[rr, cc] != current:
-                          stable = False
-                          break
-                      rr += i
-                      cc += i
-                  if not stable:
-                      break
-                if not stable:
-                    continue
-                # negative diagonal
-                for i in [1, -1]:
-                  rr, cc = r, c
-                  while 0 <= rr < rows and 0 <= cc < cols:
-                      if board[rr, cc] != current:
-                          stable = False
-                          break
-                      rr += i
-                      cc -= i
-                  if not stable:
-                      break
-                if not stable:
-                    continue
-                # case where we found a stable disc inside the matrix
-                if current == player:
-                    player_stability += 1
-                else: 
-                    opponent_stability += 1
+      for c in range(cols):
+          current = board[r, c]
+          if current == 0:  
+              continue
+          count = 0
+          for dr, dc in directions:
+            for i in [-1, 1]:
+              count = 0
+              dr *= i
+              dc *= i
+              rr, cc = r + dr, c + dc
+              while 0 <= rr < rows and 0 <= cc < cols:
+                if board[rr, cc] != current:  
+                  count += 1
+                  break
+                rr += dr
+                cc += dc
+              if count == 0: 
+                break
+            if count == 2: 
+              break
+                
+          if count != 2: 
+              if current == player:
+                  player_stability += 1
+              else:
+                  opponent_stability += 1
+                    
     return 0 if player_stability + opponent_stability == 0 else (player_stability - opponent_stability) / (player_stability + opponent_stability)
-
-  def evaluate_board(self, board: np.array, player, opponent) -> float:
+  
+  def evaluate_board(self, board: np.array, player, opponent, fuck = False) -> float:
     """
     Evaluates the board based on a weighted sum of heuristics
     """
@@ -240,7 +224,7 @@ class StudentAgent(Agent):
             self.corner_occupancy(board, player, opponent),
             self.stability(board, player, opponent)
           ]
-    return np.sum(eval * EVAL_WEIGHTS[board.shape[0]])
+    return eval if fuck else np.sum(eval * EVAL_WEIGHTS[board.shape[0]])
 
   def alpha_beta_pruning_depth_limited(self, chess_board: np.array, player, opponent, start_time: float, depth_limit: int):
     """
