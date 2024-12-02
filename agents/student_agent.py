@@ -65,11 +65,7 @@ STATIC_WEIGHTS = {
   12 : _12_BY_12_POSITIONAL_WEIGHTS
 }
 
-# self.piece_advantage(board, player, opponent),
-# self.actual_mobility_advantage(board, player, opponent),
-# self.positional_advantage(board, player, opponent),
-# self.corner_occupancy(board, player, opponent),
-# self.stability(board, player, opponent)
+DEBUG = False
 
 EVAL_WEIGHTS = {
     6: np.array([1, 1, 1, 100, 2]),
@@ -112,7 +108,8 @@ class StudentAgent(Agent):
     #print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
     chess_board_copy = chess_board.copy()
     execute_move(chess_board_copy, best_move, player)
-    print(self.evaluate_board(chess_board_copy, player, opponent, fuck=True))
+    if DEBUG:
+      print(self.evaluate_board(chess_board_copy, player, opponent, debug=DEBUG))
     return best_move
 
   # evaluation metrics
@@ -168,7 +165,7 @@ class StudentAgent(Agent):
       player_corners, opponent_corners = np.sum(board[rows, cols] == player), np.sum(board[rows, cols] == opponent)
       return 0 if player_corners + opponent_corners == 0 else (player_corners - opponent_corners) / (player_corners + opponent_corners)
   
-  def stability(board: np.array, player, opponent) -> float:
+  def stability(self, board: np.array, player, opponent) -> float:
     """
     Heuristic based on the number of corners occupied by the player compared to the opponent
     """
@@ -210,11 +207,9 @@ class StudentAgent(Agent):
                   player_stability += 1
               else:
                   opponent_stability += 1
-
-    print(player_stability, opponent_stability)           
     return 0 if player_stability + opponent_stability == 0 else (player_stability - opponent_stability) / (player_stability + opponent_stability)
   
-  def evaluate_board(self, board: np.array, player, opponent, fuck = False) -> float:
+  def evaluate_board(self, board: np.array, player, opponent, debug = False) -> float:
     """
     Evaluates the board based on a weighted sum of heuristics
     """
@@ -225,7 +220,7 @@ class StudentAgent(Agent):
             self.corner_occupancy(board, player, opponent),
             self.stability(board, player, opponent)
           ]
-    return eval if fuck else np.sum(eval * EVAL_WEIGHTS[board.shape[0]])
+    return eval if debug else np.sum(eval * EVAL_WEIGHTS[board.shape[0]])
 
   def alpha_beta_pruning_depth_limited(self, chess_board: np.array, player, opponent, start_time: float, depth_limit: int):
     """
