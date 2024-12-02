@@ -168,7 +168,7 @@ class StudentAgent(Agent):
       player_corners, opponent_corners = np.sum(board[rows, cols] == player), np.sum(board[rows, cols] == opponent)
       return 0 if player_corners + opponent_corners == 0 else (player_corners - opponent_corners) / (player_corners + opponent_corners)
   
-  def stability(self, board: np.array, player, opponent) -> float:
+  def stability(board: np.array, player, opponent) -> float:
     """
     Heuristic based on the number of corners occupied by the player compared to the opponent
     """
@@ -189,17 +189,17 @@ class StudentAgent(Agent):
               continue
           count = 0
           for dr, dc in directions:
+            count = 0
             for i in [-1, 1]:
-              count = 0
-              dr *= i
-              dc *= i
-              rr, cc = r + dr, c + dc
+              dr_ = dr * i
+              dc_ = dc * i
+              rr, cc = r + dr_, c + dc_
               while 0 <= rr < rows and 0 <= cc < cols:
                 if board[rr, cc] != current:  
                   count += 1
                   break
-                rr += dr
-                cc += dc
+                rr += dr_
+                cc += dc_
               if count == 0: 
                 break
             if count == 2: 
@@ -210,7 +210,8 @@ class StudentAgent(Agent):
                   player_stability += 1
               else:
                   opponent_stability += 1
-                    
+
+    print(player_stability, opponent_stability)           
     return 0 if player_stability + opponent_stability == 0 else (player_stability - opponent_stability) / (player_stability + opponent_stability)
   
   def evaluate_board(self, board: np.array, player, opponent, fuck = False) -> float:
