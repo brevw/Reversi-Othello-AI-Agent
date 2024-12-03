@@ -12,10 +12,10 @@ class TimeoutException(Exception):
 
 _6_BY_6_POSITIONAL_WEIGHTS = np.array([
     [100, -10,  10,  10, -10, 100],
-    [-10, -20,  -5,  -5, -20, -10],
+    [-10,  -5,  -5,  -5,  -5, -10],
     [ 10,  -5,   0,   0,  -5,  10],
     [ 10,  -5,   0,   0,  -5,  10],
-    [-10, -20,  -5,  -5, -20, -10],
+    [-10,  -5,  -5,  -5,  -5, -10],
     [100, -10,  10,  10, -10, 100]
 ], dtype=int)
 
@@ -67,8 +67,9 @@ STATIC_WEIGHTS = {
 
 DEBUG = False
 
+# piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
 EVAL_WEIGHTS = {
-    6: np.array([1, 1, 1, 100, 2]),
+    6: np.array([0.75, 0, 0.25, 0, 0]),
     8: np.array([1, 1, 1, 1.5, 1.5]),
     10: np.array([0.8, 1.5, 1.2, 2, 2]),
     12: np.array([0.5, 2, 1.5, 2.5, 2.5])
@@ -93,7 +94,7 @@ class StudentAgent(Agent):
 
     start_time = time.time()
 
-    STEP_SIZE = 10
+    STEP_SIZE = 50
     i = 200
     best_move = 1
     temp = 1
@@ -110,6 +111,7 @@ class StudentAgent(Agent):
     execute_move(chess_board_copy, best_move, player)
     if DEBUG:
       print(self.evaluate_board(chess_board_copy, player, opponent, debug=DEBUG))
+      print(self.evaluate_board(chess_board_copy, player, opponent, debug=False), '\n')
     return best_move
 
   # evaluation metrics
@@ -163,7 +165,7 @@ class StudentAgent(Agent):
       """
       rows, cols = [0, 0, -1, -1], [0, -1, 0, -1]
       player_corners, opponent_corners = np.sum(board[rows, cols] == player), np.sum(board[rows, cols] == opponent)
-      return 0 if player_corners + opponent_corners == 0 else (player_corners - opponent_corners) / (player_corners + opponent_corners)
+      return (player_corners - opponent_corners) / 4.0
   
   def stability(self, board: np.array, player, opponent) -> float:
     """
@@ -213,14 +215,15 @@ class StudentAgent(Agent):
     """
     Evaluates the board based on a weighted sum of heuristics
     """
+    weights = EVAL_WEIGHTS[board.shape[0]]
     eval = [
-            self.piece_advantage(board, player, opponent),
-            self.actual_mobility_advantage(board, player, opponent),
-            self.positional_advantage(board, player, opponent),
-            self.corner_occupancy(board, player, opponent),
-            self.stability(board, player, opponent)
+            0 if weights[0] == 0 else self.piece_advantage(board, player, opponent),
+            0 if weights[1] == 0 else self.actual_mobility_advantage(board, player, opponent),
+            0 if weights[2] == 0 else self.positional_advantage(board, player, opponent),
+            0 if weights[3] == 0 else self.corner_occupancy(board, player, opponent),
+            0 if weights[4] == 0 else self.stability(board, player, opponent)
           ]
-    return eval if debug else np.sum(eval * EVAL_WEIGHTS[board.shape[0]])
+    return eval if debug else np.sum(eval * weights)
 
   def alpha_beta_pruning_depth_limited(self, chess_board: np.array, player, opponent, start_time: float, depth_limit: int):
     """
