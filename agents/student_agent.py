@@ -157,7 +157,7 @@ class StudentAgent(Agent):
     """
     weights = STATIC_WEIGHTS[chess_board.shape[0]]
     player_poisitional, opponent_poisitional = np.sum((chess_board == player) * weights), np.sum((chess_board == opponent) * weights)
-    return 0 if player_poisitional + opponent_poisitional == 0 else ((player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional)) / 100.0
+    return 0 if player_poisitional + opponent_poisitional == 0 else ((player_poisitional - opponent_poisitional) / (player_poisitional + opponent_poisitional))
 
   def corner_occupancy(self, board: np.array, player, opponent) -> float:
       """
