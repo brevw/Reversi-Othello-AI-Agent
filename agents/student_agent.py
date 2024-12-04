@@ -124,6 +124,7 @@ class StudentAgent(Agent):
     time_taken = time.time() - start_time
     print("My AI's turn took ", time_taken, f"seconds, best move found at depth {max_depth}")
     chess_board_copy = chess_board.copy()
+    print(f"board: {chess_board}")
     print(f"best_move: {best_move}")
     execute_move(chess_board_copy, best_move, player)
     if DEBUG:
@@ -271,7 +272,7 @@ class StudentAgent(Agent):
       end_state = None 
       if end_game:
         end_state = PLAYER_WINS if player_score > opponent_score else (TIE if player_score == opponent_score else OPPONENT_WINS)
-      if depth == depth_limit or end_game:
+      if depth >= depth_limit or end_game:
         return self.evaluate_board(board, player, opponent, end_state)
       
       valid_moves = get_valid_moves(chess_board, player)
@@ -297,6 +298,7 @@ class StudentAgent(Agent):
 
         if alpha >= beta: 
           return beta
+        
       return best_move if depth == 0 else alpha
 
     def min_value(board, alpha, beta, depth) -> float: 
@@ -307,7 +309,7 @@ class StudentAgent(Agent):
       end_state = None 
       if end_game:
         end_state = PLAYER_WINS if player_score > opponent_score else (TIE if player_score == opponent_score else OPPONENT_WINS)
-      if depth == depth_limit or end_game:
+      if depth >= depth_limit or end_game:
         return self.evaluate_board(board, player, opponent, end_state)
       
       valid_moves = get_valid_moves(chess_board, opponent)
