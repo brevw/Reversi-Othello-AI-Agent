@@ -88,20 +88,20 @@ DEBUG = True
 EVAL_WEIGHTS_START = {
     6: np.array([1, 5, 0, 10, 10]),
     8: np.array([1, 5, 0, 10, 10]),
-    10: np.array([2, 3, 5, 4, 6]),
-    12: np.array([2, 3, 5, 4, 6]),
+    10: np.array([1, 5, 4, 7, 3]),
+    12: np.array([1, 5, 4, 7, 3]),
 }
 EVAL_WEIGHTS_MID = {
     6: np.array([3, 5, 0, 10, 10]),
-    8: np.array([5, 2, 0, 15, 10]),
-    10: np.array([2, 3, 5, 4, 6]),
-    12: np.array([2, 3, 5, 4, 6]),
+    8: np.array([5, 2, 5, 10, 10]),
+    10: np.array([6, 3, 5, 8, 4]),
+    12: np.array([6, 3, 5, 8, 4]),
 }
 EVAL_WEIGHTS_END = {
     6: np.array([5, 1, 0, 3, 10]),
     8: np.array([5, 1, 0, 3, 10]),
-    10: np.array([2, 3, 5, 4, 6]),
-    12: np.array([2, 3, 5, 4, 6]),
+    10: np.array([6, 1, 0, 6, 10]),
+    12: np.array([6, 1, 0, 6, 10]),
 }
 
 @register_agent("student_agent")
