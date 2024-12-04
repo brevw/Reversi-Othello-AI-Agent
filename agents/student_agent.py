@@ -71,7 +71,7 @@ DEBUG = True
 
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
 EVAL_WEIGHTS = {
-    6: np.array([1, 1, 1, 10, 1]),
+    6: np.array([1, 1, 0, 1, 1]),
     8: np.array([1, 1, 1, 1.5, 1.5]),
     10: np.array([0.8, 1.5, 1.2, 2, 2]),
     12: np.array([0.5, 2, 1.5, 2.5, 2.5])
@@ -264,9 +264,12 @@ class StudentAgent(Agent):
         # switch to other player
         return min_value(chess_board, alpha, beta, depth)
       
-      move_orderings = [(move, self.move_ordering_evaluator(board, player, player_score, opponent_score)) for move in valid_moves]
-      sorted(move_orderings, key=lambda x: x[1])
-      for move, _ in move_orderings: 
+      move_orderings = valid_moves
+      if depth == 0:
+        move_orderings = [(move, self.move_ordering_evaluator(board, player, player_score, opponent_score)) for move in valid_moves]
+        sorted(move_orderings, key=lambda x: x[1])
+        move_orderings = [move for move, _ in move_orderings]
+      for move in move_orderings: 
         board_copy = board.copy()
         execute_move(board_copy, move, player)
         min_val = min_value(board_copy, alpha, beta, depth + 1)
@@ -293,13 +296,8 @@ class StudentAgent(Agent):
         return self.evaluate_board(board, player, opponent, end_state)
       
       valid_moves = get_valid_moves(chess_board, opponent)
-      if not valid_moves:
-        # switch to other player
-        return max_value(chess_board, alpha, beta, depth)
-
-      move_orderings = [(move, self.move_ordering_evaluator(board, player, player_score, opponent_score)) for move in valid_moves]
-      sorted(move_orderings, key=lambda x: -x[1])
-      for move, _ in move_orderings: 
+      
+      for move in valid_moves: 
         board_copy = board.copy()
         execute_move(board_copy, move, opponent)
         max_val = max_value(board_copy, alpha, beta, depth + 1)
