@@ -22,14 +22,14 @@ _6_BY_6_POSITIONAL_WEIGHTS = np.array([
 ], dtype=int)
 
 _8_BY_8_POSITIONAL_WEIGHTS = np.array([
-    [100,  50,  20,   1,   1,  20,  50, 100],
-    [ 50,   1,    1,  1,   1,   1,   1,  50],
-    [ 20,   1,   0,   0,   0,   0,   1,  20],
-    [  1,   1,   0,   0,   0,   0,   1,   1],
-    [  1,   1,   0,   0,   0,   0,   1,   1],
-    [ 20,   1,   0,   0,   0,   0,   1,  20],
-    [ 50,   1,   1,   1,   1,   1,   1,  50],
-    [100,  50,  20,   1,   1,  20,  50, 100]
+    [ 30,   0,  20,   5,   5,  20,   0,  30],
+    [  0,   0,   5,   5,   5,   5,   0,   0],
+    [ 20,   5,   2,   2,   2,   2,   5,  20],
+    [  1,   5,   2,   2,   2,   2,   5,   1],
+    [  1,   5,   2,   2,   2,   2,   5,   1],
+    [ 20,   5,   2,   2,   2,   2,   5,  20],
+    [  0,   0,   5,   5,   5,   5,   0,   0],
+    [ 30,   0,  20,   1,   1,  20,   0,  30]
 ], dtype=int)
 
 _10_BY_10_POSITIONAL_WEIGHTS = np.array([
@@ -84,12 +84,24 @@ STARTING_DEPTH = {
 DEBUG = True
 
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
-EVAL_WEIGHTS = {
-    6: np.array([2, 1, 3, 2, 5]),
-    8: np.array([2, 1, 4, 1, 1]),
-    10: np.array([2, 1, 4, 1, 1]),
-    12: np.array([2, 1, 4, 1, 1])
-  }
+EVAL_WEIGHTS_START = {
+    6: np.array([2, 3, 5, 4, 6]),
+    8: np.array([4, 3, 5, 4, 6]),
+    10: np.array([2, 3, 5, 4, 6]),
+    12: np.array([2, 3, 5, 4, 6]),
+}
+EVAL_WEIGHTS_MID = {
+    6: np.array([2, 3, 5, 4, 6]),
+    8: np.array([4, 3, 5, 4, 6]),
+    10: np.array([2, 3, 5, 4, 6]),
+    12: np.array([2, 3, 5, 4, 6]),
+}
+EVAL_WEIGHTS_END = {
+    6: np.array([2, 3, 5, 4, 6]),
+    8: np.array([4, 3, 5, 4, 6]),
+    10: np.array([2, 3, 5, 4, 6]),
+    12: np.array([2, 3, 5, 4, 6]),
+}
 
 @register_agent("student_agent")
 class StudentAgent(Agent):
@@ -235,7 +247,14 @@ class StudentAgent(Agent):
     """
     if end_state is not None: 
       return end_state
-    weights = EVAL_WEIGHTS[board.shape[0]]
+    
+    size = board.shape[0]
+    total_pieces = np.sum(board != 0) 
+    end_game = total_pieces > (size * size * 2 // 3)
+    mid_game = total_pieces > (size * size // 3) 
+        
+    weights = EVAL_WEIGHTS_END[size] if end_game else (EVAL_WEIGHTS_MID[size] if mid_game else EVAL_WEIGHTS_START[size])
+    
     eval = [
             0 if weights[0] == 0 else self.piece_advantage(board, player, opponent),
             0 if weights[1] == 0 else self.actual_mobility_advantage(board, player, opponent),
@@ -243,7 +262,11 @@ class StudentAgent(Agent):
             0 if weights[3] == 0 else self.corner_occupancy(board, player, opponent),
             0 if weights[4] == 0 else self.stability(board, player, opponent)
           ]
+    
     return eval if debug else np.sum(eval * weights) / np.sum(weights)
+  
+  
+  
 
   def move_ordering_evaluator(self, board, color, player_score, opponent_score):
       # Corner positions are highly valuable
