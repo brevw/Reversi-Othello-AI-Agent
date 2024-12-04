@@ -67,6 +67,20 @@ STATIC_WEIGHTS = {
   12 : _12_BY_12_POSITIONAL_WEIGHTS
 }
 
+STEP_SIZE = {
+  6  : 2,
+  8  : 1,
+  10 : 1,
+  12 : 1
+}
+
+STARTING_DEPTH = {
+  6  : 2,
+  8  : 2,
+  10 : 2,
+  12 : 2
+}
+
 DEBUG = True
 
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
@@ -96,19 +110,19 @@ class StudentAgent(Agent):
 
     start_time = time.time()
 
-    STEP_SIZE = 1
-    i = 1
+    step_size = STEP_SIZE[chess_board.shape[0]]
+    max_depth = STARTING_DEPTH[chess_board.shape[0]]
     best_move = None
     temp = 1
     while temp:
-      temp = self.alpha_beta_pruning_depth_limited(chess_board, player, opponent, start_time, i)
+      temp = self.alpha_beta_pruning_depth_limited(chess_board, player, opponent, start_time, max_depth)
       if temp: 
         best_move = temp
       else:
         break
-      i += STEP_SIZE
+      max_depth += step_size
     time_taken = time.time() - start_time
-    print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
+    print("My AI's turn took ", time_taken, f"seconds, best move found at depth {max_depth}")
     chess_board_copy = chess_board.copy()
     execute_move(chess_board_copy, best_move, player)
     if DEBUG:
