@@ -13,13 +13,13 @@ class TimeoutException(Exception):
 PLAYER_WINS, TIE, OPPONENT_WINS = -1.0, 0.0, +1.0
 
 _6_BY_6_POSITIONAL_WEIGHTS = np.array([
-    [ 10,  0,   5,   5,  0,  10],
+    [ 20,  0,  10,  10,  0,  20],
+    [  0,  0,   5,   5,  0,   0],
+    [ 10,  5,   2,   2,  5,  10],
+    [ 10,  5,   2,   2,  5,  10],
     [  0,  0,   2,   2,  0,   0],
-    [  5,  2,   1,   1,  2,   5],
-    [  5,  2,   1,   1,  2,   5],
-    [  0,  0,   2,   2,  0,   0],
-    [ 10,  0,   5,   5,  0,  10]
-], dtype=int) 
+    [ 20,  0,   5,   5,  0,  20]
+], dtype=int)
 
 _8_BY_8_POSITIONAL_WEIGHTS = np.array([
     [100,  50,  20,   1,   1,  20,  50, 100],
@@ -68,14 +68,14 @@ STATIC_WEIGHTS = {
 }
 
 STEP_SIZE = {
-  6  : 2,
+  6  : 1,
   8  : 1,
   10 : 1,
   12 : 1
 }
 
 STARTING_DEPTH = {
-  6  : 2,
+  6  : 3,
   8  : 2,
   10 : 2,
   12 : 2
@@ -85,7 +85,7 @@ DEBUG = True
 
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
 EVAL_WEIGHTS = {
-    6: np.array([2, 1, 4, 1, 1]),
+    6: np.array([2, 1, 3, 2, 5]),
     8: np.array([2, 1, 4, 1, 1]),
     10: np.array([2, 1, 4, 1, 1]),
     12: np.array([2, 1, 4, 1, 1])
@@ -304,6 +304,9 @@ class StudentAgent(Agent):
         return self.evaluate_board(board, player, opponent, end_state)
       
       valid_moves = get_valid_moves(chess_board, opponent)
+      if not valid_moves:
+        # switch to other player
+        return max_value(chess_board, alpha, beta, depth)
       
       for move in valid_moves: 
         board_copy = board.copy()
