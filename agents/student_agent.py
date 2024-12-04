@@ -82,23 +82,24 @@ STARTING_DEPTH = {
 }
 
 DEBUG = True
-
+# python simulator.py --player_1 gpt_greedy_corners_agent --player_2 student_agent --display --board_size 8
+# python simulator.py --player_1 student_agent --player_2 gpt_greedy_corners_agent --display --board_size 8
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
 EVAL_WEIGHTS_START = {
     6: np.array([1, 5, 0, 10, 10]),
-    8: np.array([1, 1, 1, 1, 1]),
+    8: np.array([1, 5, 0, 10, 10]),
     10: np.array([2, 3, 5, 4, 6]),
     12: np.array([2, 3, 5, 4, 6]),
 }
 EVAL_WEIGHTS_MID = {
     6: np.array([3, 5, 0, 10, 10]),
-    8: np.array([1, 3, 5, 10, 5]),
+    8: np.array([5, 2, 0, 15, 10]),
     10: np.array([2, 3, 5, 4, 6]),
     12: np.array([2, 3, 5, 4, 6]),
 }
 EVAL_WEIGHTS_END = {
     6: np.array([5, 1, 0, 3, 10]),
-    8: np.array([5, 1, 0, 5, 10]),
+    8: np.array([5, 1, 0, 3, 10]),
     10: np.array([2, 3, 5, 4, 6]),
     12: np.array([2, 3, 5, 4, 6]),
 }
