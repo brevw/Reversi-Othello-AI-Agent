@@ -85,19 +85,19 @@ DEBUG = True
 
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
 EVAL_WEIGHTS_START = {
-    6: np.array([2, 3, 5, 4, 6]),
+    6: np.array([1, 1, 5, 10, 5]),
     8: np.array([1, 1, 1, 1, 1]),
     10: np.array([2, 3, 5, 4, 6]),
     12: np.array([2, 3, 5, 4, 6]),
 }
 EVAL_WEIGHTS_MID = {
-    6: np.array([2, 3, 5, 4, 6]),
+    6: np.array([3, 1, 0, 5, 10]),
     8: np.array([1, 3, 5, 10, 5]),
     10: np.array([2, 3, 5, 4, 6]),
     12: np.array([2, 3, 5, 4, 6]),
 }
 EVAL_WEIGHTS_END = {
-    6: np.array([2, 3, 5, 4, 6]),
+    6: np.array([5, 1, 0, 5, 10]),
     8: np.array([5, 1, 0, 5, 10]),
     10: np.array([2, 3, 5, 4, 6]),
     12: np.array([2, 3, 5, 4, 6]),
