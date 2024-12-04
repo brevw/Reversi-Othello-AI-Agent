@@ -10,6 +10,8 @@ from helpers import random_move, count_capture, execute_move, check_endgame, get
 class TimeoutException(Exception):
     pass
 
+PLAYER_WINS, TIE, OPPONENT_WINS = -1.0, 0.0, +1.0
+
 _6_BY_6_POSITIONAL_WEIGHTS = np.array([
     [100, -10,  10,  10, -10, 100],
     [-10,  -5,  -5,  -5,  -5, -10],
@@ -17,7 +19,7 @@ _6_BY_6_POSITIONAL_WEIGHTS = np.array([
     [ 10,  -5,   0,   0,  -5,  10],
     [-10,  -5,  -5,  -5,  -5, -10],
     [100, -10,  10,  10, -10, 100]
-], dtype=int)
+], dtype=int) + 10
 
 _8_BY_8_POSITIONAL_WEIGHTS = np.array([
     [100, -10,  10,   5,   5,  10, -10, 100],
@@ -65,11 +67,11 @@ STATIC_WEIGHTS = {
   12 : _12_BY_12_POSITIONAL_WEIGHTS
 }
 
-DEBUG = False
+DEBUG = True
 
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
 EVAL_WEIGHTS = {
-    6: np.array([0.75, 0, 0.25, 0, 0]),
+    6: np.array([1, 1, 1, 10, 1]),
     8: np.array([1, 1, 1, 1.5, 1.5]),
     10: np.array([0.8, 1.5, 1.2, 2, 2]),
     12: np.array([0.5, 2, 1.5, 2.5, 2.5])
@@ -94,9 +96,9 @@ class StudentAgent(Agent):
 
     start_time = time.time()
 
-    STEP_SIZE = 50
-    i = 200
-    best_move = 1
+    STEP_SIZE = 1
+    i = 1
+    best_move = None
     temp = 1
     while temp:
       temp = self.alpha_beta_pruning_depth_limited(chess_board, player, opponent, start_time, i)
@@ -106,12 +108,12 @@ class StudentAgent(Agent):
         break
       i += STEP_SIZE
     time_taken = time.time() - start_time
-    #print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
+    print("My AI's turn took ", time_taken, f"seconds, best move found at depth {i}")
     chess_board_copy = chess_board.copy()
     execute_move(chess_board_copy, best_move, player)
     if DEBUG:
-      print(self.evaluate_board(chess_board_copy, player, opponent, debug=DEBUG))
-      print(self.evaluate_board(chess_board_copy, player, opponent, debug=False), '\n')
+      print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=DEBUG))
+      print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=False), '\n')
     return best_move
 
   # evaluation metrics
@@ -211,10 +213,12 @@ class StudentAgent(Agent):
                   opponent_stability += 1
     return 0 if player_stability + opponent_stability == 0 else (player_stability - opponent_stability) / (player_stability + opponent_stability)
   
-  def evaluate_board(self, board: np.array, player, opponent, debug = False) -> float:
+  def evaluate_board(self, board: np.array, player, opponent, end_state, debug = False) -> float:
     """
     Evaluates the board based on a weighted sum of heuristics
     """
+    if end_state is not None: 
+      return end_state
     weights = EVAL_WEIGHTS[board.shape[0]]
     eval = [
             0 if weights[0] == 0 else self.piece_advantage(board, player, opponent),
@@ -223,7 +227,21 @@ class StudentAgent(Agent):
             0 if weights[3] == 0 else self.corner_occupancy(board, player, opponent),
             0 if weights[4] == 0 else self.stability(board, player, opponent)
           ]
-    return eval if debug else np.sum(eval * weights)
+    return eval if debug else np.sum(eval * weights) / np.sum(weights)
+
+  def move_ordering_evaluator(self, board, color, player_score, opponent_score):
+      # Corner positions are highly valuable
+      rows, cols = [0, 0, -1, -1], [0, -1, 0, -1]
+      corner_score = np.sum(board[rows, cols] == color) * 10
+      corner_penalty = np.sum(board[rows, cols] == 3 - color) * 10 * -10
+
+      # Mobility: the number of moves the opponent can make
+      opponent_moves = len(get_valid_moves(board, 3 - color))
+      mobility_score = -opponent_moves
+
+      # Combine scores
+      total_score = player_score - opponent_score + corner_score + corner_penalty + mobility_score
+      return total_score
 
   def alpha_beta_pruning_depth_limited(self, chess_board: np.array, player, opponent, start_time: float, depth_limit: int):
     """
@@ -234,15 +252,21 @@ class StudentAgent(Agent):
         raise TimeoutException()
       # do not exceed max depth
       best_move = None
-      if depth == depth_limit or check_endgame(board, player, opponent)[0]:
-        return self.evaluate_board(board, player, opponent)
+      end_game, player_score, opponent_score = check_endgame(board, player, opponent)
+      end_state = None 
+      if end_game:
+        end_state = PLAYER_WINS if player_score > opponent_score else (TIE if player_score == opponent_score else OPPONENT_WINS)
+      if depth == depth_limit or end_game:
+        return self.evaluate_board(board, player, opponent, end_state)
       
       valid_moves = get_valid_moves(chess_board, player)
       if not valid_moves:
         # switch to other player
         return min_value(chess_board, alpha, beta, depth)
       
-      for move in valid_moves: 
+      move_orderings = [(move, self.move_ordering_evaluator(board, player, player_score, opponent_score)) for move in valid_moves]
+      sorted(move_orderings, key=lambda x: x[1])
+      for move, _ in move_orderings: 
         board_copy = board.copy()
         execute_move(board_copy, move, player)
         min_val = min_value(board_copy, alpha, beta, depth + 1)
@@ -261,15 +285,21 @@ class StudentAgent(Agent):
       if time.time() - start_time > self.time_limit:
         raise TimeoutException()
       # do not exceed max depth
-      if depth == depth_limit or check_endgame(board, opponent, player):
-        return self.evaluate_board(board, player, opponent)
+      end_game, opponent_score, player_score  = check_endgame(board, opponent, player)
+      end_state = None 
+      if end_game:
+        end_state = PLAYER_WINS if player_score > opponent_score else (TIE if player_score == opponent_score else OPPONENT_WINS)
+      if depth == depth_limit or end_game:
+        return self.evaluate_board(board, player, opponent, end_state)
       
       valid_moves = get_valid_moves(chess_board, opponent)
       if not valid_moves:
         # switch to other player
         return max_value(chess_board, alpha, beta, depth)
 
-      for move in valid_moves: 
+      move_orderings = [(move, self.move_ordering_evaluator(board, player, player_score, opponent_score)) for move in valid_moves]
+      sorted(move_orderings, key=lambda x: -x[1])
+      for move, _ in move_orderings: 
         board_copy = board.copy()
         execute_move(board_copy, move, opponent)
         max_val = max_value(board_copy, alpha, beta, depth + 1)
