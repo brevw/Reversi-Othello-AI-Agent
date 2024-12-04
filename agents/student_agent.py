@@ -267,7 +267,6 @@ class StudentAgent(Agent):
       if time.time() - start_time > self.time_limit:
         raise TimeoutException()
       # do not exceed max depth
-      best_move = None
       end_game, player_score, opponent_score = check_endgame(board, player, opponent)
       end_state = None 
       if end_game:
@@ -280,26 +279,18 @@ class StudentAgent(Agent):
         # switch to other player
         return min_value(chess_board, alpha, beta, depth)
       
-      move_orderings = valid_moves
-      if depth == 0:
-        move_orderings = [(move, self.move_ordering_evaluator(board, player, player_score, opponent_score)) for move in valid_moves]
-        sorted(move_orderings, key=lambda x: x[1])
-        move_orderings = [move for move, _ in move_orderings]
-      for move in move_orderings: 
+      for move in valid_moves: 
         board_copy = board.copy()
         execute_move(board_copy, move, player)
         min_val = min_value(board_copy, alpha, beta, depth + 1)
         # equiv to alpha = max(alpha, ...)
         if alpha < min_val: 
           alpha = min_val
-          if depth == 0: 
-            # record best move
-            best_move = move
 
         if alpha >= beta: 
           return beta
         
-      return best_move if depth == 0 else alpha
+      return alpha
 
     def min_value(board, alpha, beta, depth) -> float: 
       if time.time() - start_time > self.time_limit:
@@ -324,8 +315,32 @@ class StudentAgent(Agent):
           return alpha
       return beta
     
-    try:
+    def entry_point(board):
       INF = sys.maxsize
-      return max_value(chess_board, -INF, +INF, 0)
+      alpha, beta = -INF, INF
+      if time.time() - start_time > self.time_limit:
+        raise TimeoutException()
+      # do not exceed max depth
+      best_move = None
+      end_game, player_score, opponent_score = check_endgame(board, player, opponent)
+      if end_game:
+        return None
+      
+      valid_moves = get_valid_moves(chess_board, player)
+      move_orderings = valid_moves
+      move_orderings = [(move, self.move_ordering_evaluator(board, player, player_score, opponent_score)) for move in valid_moves]
+      sorted(move_orderings, key=lambda x: x[1])
+      for move, _ in move_orderings: 
+        board_copy = board.copy()
+        execute_move(board_copy, move, player)
+        min_val = min_value(board_copy, alpha, beta, 1)
+        # equiv to alpha = max(alpha, ...)
+        if alpha < min_val: 
+          alpha = min_val
+          best_move = move
+      return best_move
+    
+    try:
+      return entry_point(chess_board)
     except TimeoutException:
       return None 
