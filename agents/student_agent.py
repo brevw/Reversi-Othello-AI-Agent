@@ -86,9 +86,9 @@ DEBUG = True
 # piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
 EVAL_WEIGHTS = {
     6: np.array([2, 1, 4, 1, 1]),
-    8: np.array([1, 1, 1, 1.5, 1.5]),
-    10: np.array([0.8, 1.5, 1.2, 2, 2]),
-    12: np.array([0.5, 2, 1.5, 2.5, 2.5])
+    8: np.array([2, 1, 4, 1, 1]),
+    10: np.array([2, 1, 4, 1, 1]),
+    12: np.array([2, 1, 4, 1, 1])
   }
 
 @register_agent("student_agent")
@@ -124,7 +124,7 @@ class StudentAgent(Agent):
     time_taken = time.time() - start_time
     print("My AI's turn took ", time_taken, f"seconds, best move found at depth {max_depth}")
     chess_board_copy = chess_board.copy()
-    print(f"board: {chess_board}")
+    print(f"board:\n {chess_board}")
     print(f"best_move: {best_move}")
     execute_move(chess_board_copy, best_move, player)
     if DEBUG:
