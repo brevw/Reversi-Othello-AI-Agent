@@ -101,7 +101,7 @@ EVAL_WEIGHTS_END = {
     6: np.array([5, 1, 0, 3, 10]),
     8: np.array([5, 1, 0, 3, 10]),
     10: np.array([6, 1, 0, 6, 10]),
-    12: np.array([6, 1, 0, 6, 10]),
+    12: np.array([6, 1, 0, 10, 10]),
 }
 
 @register_agent("student_agent")
@@ -135,14 +135,14 @@ class StudentAgent(Agent):
         break
       max_depth += step_size
     time_taken = time.time() - start_time
-    print("My AI's turn took ", time_taken, f"seconds, best move found at depth {max_depth}")
-    chess_board_copy = chess_board.copy()
-    print(f"board:\n {chess_board}")
-    print(f"best_move: {best_move}")
-    execute_move(chess_board_copy, best_move, player)
-    if DEBUG:
-      print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=DEBUG))
-      print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=False), '\n')
+    # print("My AI's turn took ", time_taken, f"seconds, best move found at depth {max_depth}")
+    # chess_board_copy = chess_board.copy()
+    # print(f"board:\n {chess_board}")
+    # print(f"best_move: {best_move}")
+    # execute_move(chess_board_copy, best_move, player)
+    # if DEBUG:
+    #   print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=DEBUG))
+    #   print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=False), '\n')
     return best_move
 
   # evaluation metrics
