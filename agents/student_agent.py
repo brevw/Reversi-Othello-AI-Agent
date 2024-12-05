@@ -81,10 +81,8 @@ STARTING_DEPTH = {
   12 : 2
 }
 
-DEBUG = True
-# python simulator.py --player_1 gpt_greedy_corners_agent --player_2 student_agent --display --board_size 8
-# python simulator.py --player_1 student_agent --player_2 gpt_greedy_corners_agent --display --board_size 8
-# piece_advantage - actual_mobility_advantage - positional_advantage - corner_occupancy - stability
+DEBUG = False
+
 EVAL_WEIGHTS_START = {
     6: np.array([1, 5, 0, 10, 10]),
     8: np.array([1, 5, 0, 10, 10]),
@@ -135,14 +133,6 @@ class StudentAgent(Agent):
         break
       max_depth += step_size
     time_taken = time.time() - start_time
-    # print("My AI's turn took ", time_taken, f"seconds, best move found at depth {max_depth}")
-    # chess_board_copy = chess_board.copy()
-    # print(f"board:\n {chess_board}")
-    # print(f"best_move: {best_move}")
-    # execute_move(chess_board_copy, best_move, player)
-    # if DEBUG:
-    #   print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=DEBUG))
-    #   print(self.evaluate_board(chess_board_copy, player, opponent, None, debug=False), '\n')
     return best_move
 
   # evaluation metrics
